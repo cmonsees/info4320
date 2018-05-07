@@ -85,20 +85,14 @@ void loop() {
   // This doesn't happen in the background, instead, the entire
   // file is played and the program will continue when it's done!
   musicPlayer.playFullFile("Track001.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track002.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track003.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track004.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track005.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track006.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track007.mp3");
-  delay(500);
   musicPlayer.playFullFile("Track008.mp3");
+  musicPlayer.playFullFile("Track009.mp3");
     
   // Start playing a file, then we can do stuff while waiting for it to finish
   if (! musicPlayer.startPlayingFile("Track001.mp3")) {
