@@ -1,90 +1,77 @@
-// Motor control
-const int motorEnable_Pin = D0;
-const int leftSide_Pin = D1;
-const int rightSide_Pin = D2;
+// e.g. motorPin[0] is motorEnable for motor 0
+const int motorPin[3] = {D0, D3, A6};
+const int leftPin[3] = {D2, D5, A4};
+const int rightPin[3] = {D1, D4, A5};
 
-const int motorEnable_Pin2 = D3;
-const int leftSide_Pin2 = D4;
-const int rightSide_Pin2 = D5;
-
-const int motorEnable_Pin3 = A6;
-const int leftSide_Pin3 = A5;
-const int rightSide_Pin3 = A4;
-
-// current transition count
-int pulse_count;
+int bendInfo[3][3] = {
+  {0, 0, 0}, // time bent
+  {0, 0, 0}, // cumulative bend speed
+  {0, 0, 0}  // calculated bend
+};
 
 const int C_Pin = A0; // Pin connected to FSR/resistor divider
 const int D_Pin = A1;
 const int E_Pin = A2;
 const int F_Pin = A3;
 
-const int buzz_pin = WKP;
+// Passive buzzer setup
+// const int buzz_pin = WKP;
+// const int C4Freq = 262;
+// const int D4Freq = 294;
+// const int E4Freq = 330;
+// const int F4Freq = 349;
 
-const int C4Freq = 262;
-const int D4Freq = 294;
-const int E4Freq = 330;
-const int F4Freq = 349;
+int calcForce(int input) {
+  const float VCC = 3.3; // Measured voltage of Ardunio 5V line
+  const float R_DIV = 3330.0; // Measured resistance of 3.3k resistor
+  float force;
 
-// Measure the voltage at 5V and resistance of your 3.3k resistor, and enter
-// their value's below:
-const float VCC = 3.3; // Measured voltage of Ardunio 5V line
-const float R_DIV = 3330.0; // Measured resistance of 3.3k resistor
+  float fsrV = input * VCC / 1023.0; // Calculate voltage
+  float fsrR = R_DIV * (VCC / fsrV - 1.0); // Calculate FSR resistance
+  float fsrG = 1.0 / fsrR; // Calculate conductance
+  if (fsrR <= 600) {
+    force = (fsrG - 0.00075) / 0.00000032639;
+  } else { force =  fsrG / 0.000000642857; }
+
+  int returnSpeed = map(force, 1, 1000, 0, 128); // Map force to motor Speed
+  return returnSpeed;
+}
+
+void spool(int motor, int speed, int direction) {
+  if ((direction == 1) || (direction == -1)) {
+    if (direction == 1) { // 1 = spool
+      digitalWrite(leftPin[motor], HIGH);
+      digitalWrite(rightPin[motor], LOW);
+      analogWrite(motorPin[motor], speed);
+
+      bendInfo[1][motor] += (speed/10);
+    }
+    if (direction == -1) { // -1 = unspool
+      digitalWrite(leftPin[motor], LOW);
+      digitalWrite(rightPin[motor], HIGH);
+      analogWrite(motorPin[motor], speed);
+
+      bendInfo[1][motor] -= (speed/10);
+    }
+    bendInfo[0][motor]++;
+    bendInfo[2][motor] = (bendInfo[1][motor] / bendInfo[0][motor]);
+  }
+}
+
+int spoolToggle = 1; // global spool direction
 
 void setup() {
   Serial.begin(9600);
 
   // configure the motor pins
-  pinMode(motorEnable_Pin,OUTPUT);
-  pinMode(leftSide_Pin,OUTPUT);
-  pinMode(rightSide_Pin,OUTPUT);
+  for (int i = 0; i < 3; i++) {
+    pinMode(motorPin[i], OUTPUT);
+    pinMode(leftPin[i], OUTPUT);
+    pinMode(rightPin[i], OUTPUT);
 
-  pinMode(motorEnable_Pin2,OUTPUT);
-  pinMode(leftSide_Pin2,OUTPUT);
-  pinMode(rightSide_Pin2,OUTPUT);
-
-  pinMode(motorEnable_Pin3,OUTPUT);
-  pinMode(leftSide_Pin3,OUTPUT);
-  pinMode(rightSide_Pin3,OUTPUT);
-
-  pinMode(buzz_pin, OUTPUT);
-
-  // Motor is off going forward
-  analogWrite(motorEnable_Pin,0);
-  digitalWrite(leftSide_Pin, HIGH);
-  digitalWrite(rightSide_Pin, LOW);
-
-  // Motor2 is off going forward
-  analogWrite(motorEnable_Pin2,0);
-  digitalWrite(leftSide_Pin2, LOW);
-  digitalWrite(rightSide_Pin2, HIGH);
-
-  // Motor3 is off going forward
-  analogWrite(motorEnable_Pin3,0);
-  digitalWrite(leftSide_Pin3, LOW);
-  digitalWrite(rightSide_Pin3, HIGH);
-}
-
-int calcForce(int input) {
-  // Use ADC reading to calculate voltage:
-  float fsrV = input * VCC / 1023.0;
-  // Use voltage and static resistor value to
-  // calculate FSR resistance:
-  float fsrR = R_DIV * (VCC / fsrV - 1.0);
-  Serial.println("Resistance: " + String(fsrR) + " ohms");
-  // Guesstimate force based on slopes in figure 3 of
-  // FSR datasheet:
-  float force;
-  float fsrG = 1.0 / fsrR; // Calculate conductance
-  // Break parabolic curve down into two linear slopes:
-  if (fsrR <= 600){
-    force = (fsrG - 0.00075) / 0.00000032639;}
-  else {
-    force =  fsrG / 0.000000642857;
+    // set motors to default spool state
+    spool(motorPin[i], 0, 1); // 1 = spool; -1 = unspool
   }
-  int returnStrength = map(force, 1, 1000, 0, 255);
-
-  return returnStrength;
 }
 
 void loop(){
@@ -92,48 +79,34 @@ void loop(){
   int D_Read = analogRead(D_Pin);
   int E_Read = analogRead(E_Pin);
   int F_Read = analogRead(F_Pin);
-  // If the FSR has no pressure, the resistance will be
-  // near infinite. So the voltage should be near 0.
 
-  if (C_Read != 0) { // If the analog reading is non-zero
-    int motorStrength = calcForce(C_Read);
-    // Motor 1: left LOW, right HIGH = SPOOL
-    digitalWrite(leftSide_Pin, HIGH);
-    digitalWrite(rightSide_Pin, LOW);
-    analogWrite(motorEnable_Pin, motorStrength);
-
-    // Serial.println(motorStrength);
-    // // Serial.println("Force: " + String(force) + " g");
-    // Serial.println();
-
+  if (C_Read > 50) { // If the analog reading is non-zero
+    int motorSpeed = calcForce(C_Read);
+    // 1 = spool; -1 = unspool
+    spool(0, motorSpeed, spoolToggle);
+    Serial.println(bendInfo[2][0]);
   }
 
-  if (D_Read != 0) {// If the analog reading is non-zero
-    int motorStrength2 = calcForce(D_Read);
-    // Motor 2: left LOW, right HIGH = SPOOL
-    digitalWrite(leftSide_Pin2, LOW);
-    digitalWrite(rightSide_Pin2, HIGH);
-    analogWrite(motorEnable_Pin2, motorStrength2);
-
-    // Serial.println(motorStrength2);
-    // Serial.println("Force: " + String(force2) + " g");
-    // Serial.println();
+  if (D_Read > 50) {// If the analog reading is non-zero
+    int motorSpeed2 = calcForce(D_Read);
+    // 1 = spool; -1 = unspool
+    spool(1, motorSpeed2, spoolToggle);
+    Serial.println(bendInfo[2][1]);
   }
 
-  if (E_Read != 0) {// If the analog reading is non-zero
-    int motorStrength3 = calcForce(E_Read);
-    // Motor 2: left LOW, right HIGH = SPOOL
-    digitalWrite(leftSide_Pin3, LOW);
-    digitalWrite(rightSide_Pin3, HIGH);
-    analogWrite(motorEnable_Pin3, motorStrength3);
-
-    // Serial.println(motorStrength2);
-    // Serial.println("Force: " + String(force2) + " g");
-    // Serial.println();
+  if (E_Read > 50) {// If the analog reading is non-zero
+    int motorSpeed3 = calcForce(E_Read);
+    // 1 = spool; -1 = unspool
+    spool(2, motorSpeed3, spoolToggle);
+    Serial.println(bendInfo[2][2]);
+  }
+  if (F_Read > 500) {
+    spoolToggle = -spoolToggle;
+    delay(300);
   }
 
-  if(C_Read >50){ tone(buzz_pin, C4Freq, 500);}
-  if(D_Read >50){ tone(buzz_pin, D4Freq, 500);}
-  if(E_Read >50){ tone(buzz_pin, E4Freq, 500);}
-  if(F_Read >50){ tone(buzz_pin, F4Freq, 500);}
+  // if(C_Read >50){ tone(buzz_pin, C4Freq, 500);}
+  // if(D_Read >50){ tone(buzz_pin, D4Freq, 500);}
+  // if(E_Read >50){ tone(buzz_pin, E4Freq, 500);}
+  // if(F_Read >50){ tone(buzz_pin, F4Freq, 500);}
 }
