@@ -3,12 +3,6 @@ const int motorPin[3] = {D0, D3, A6};
 const int leftPin[3] = {D2, D5, A4};
 const int rightPin[3] = {D1, D4, A5};
 
-int bendInfo[3][3] = {
-  {0, 0, 0}, // time bent
-  {0, 0, 0}, // cumulative bend speed
-  {0, 0, 0}  // calculated bend
-};
-
 const int C_Pin = A0; // Pin connected to FSR/resistor divider
 const int D_Pin = A1;
 const int E_Pin = A2;
@@ -34,6 +28,8 @@ int calcForce(int input) {
   } else { force =  fsrG / 0.000000642857; }
 
   int returnSpeed = map(force, 1, 1000, 0, 128); // Map force to motor Speed
+  if (abs(returnSpeed) > 128) { returnSpeed = 128; }
+
   return returnSpeed;
 }
 
@@ -43,19 +39,41 @@ void spool(int motor, int speed, int direction) {
       digitalWrite(leftPin[motor], HIGH);
       digitalWrite(rightPin[motor], LOW);
       analogWrite(motorPin[motor], speed);
-
-      bendInfo[1][motor] += (speed/10);
     }
     if (direction == -1) { // -1 = unspool
       digitalWrite(leftPin[motor], LOW);
       digitalWrite(rightPin[motor], HIGH);
       analogWrite(motorPin[motor], speed);
-
-      bendInfo[1][motor] -= (speed/10);
     }
-    bendInfo[0][motor]++;
-    bendInfo[2][motor] = (bendInfo[1][motor] / bendInfo[0][motor]);
   }
+}
+
+void spoolEase(int motor, int direction) {
+  if (direction == 1) { // 1 = spool
+    digitalWrite(leftPin[motor], HIGH);
+    digitalWrite(rightPin[motor], LOW);
+    for (int e = 1; e < 128; e++) {
+      analogWrite(motorPin[motor], e);
+      e = e*2;
+      delay(1);
+    }
+    for (int o = 1; o < 128; o++) {
+      analogWrite(motorPin[motor], o);
+      o = o/2;
+      delay(1);
+    }
+  }
+  if (direction == -1) { // -1 = unspool
+    digitalWrite(leftPin[motor], LOW);
+    digitalWrite(rightPin[motor], HIGH);
+    for (int e = 1; e < 128; e*2) {
+      analogWrite(motorPin[motor], e);
+    }
+    for (int o = 1; o < 128; o/2) {
+      analogWrite(motorPin[motor], o);
+    }
+  }
+  delay(100);
 }
 
 int spoolToggle = 1; // global spool direction
@@ -80,25 +98,23 @@ void loop(){
   int E_Read = analogRead(E_Pin);
   int F_Read = analogRead(F_Pin);
 
-  if (C_Read > 50) { // If the analog reading is non-zero
+  if (C_Read > 50) { // 50 provides padding for signal noise
     int motorSpeed = calcForce(C_Read);
-    // 1 = spool; -1 = unspool
+    Serial.print(String(motorSpeed)+"\n");
+    // delay(5);
     spool(0, motorSpeed, spoolToggle);
-    Serial.println(bendInfo[2][0]);
+    // Serial.print("Read C");
+    // spoolEase(0, spoolToggle);
   }
 
-  if (D_Read > 50) {// If the analog reading is non-zero
+  if (D_Read > 50) { // 50 provides padding for signal noise
     int motorSpeed2 = calcForce(D_Read);
-    // 1 = spool; -1 = unspool
     spool(1, motorSpeed2, spoolToggle);
-    Serial.println(bendInfo[2][1]);
   }
 
-  if (E_Read > 50) {// If the analog reading is non-zero
+  if (E_Read > 50) { // 50 provides padding for signal noise
     int motorSpeed3 = calcForce(E_Read);
-    // 1 = spool; -1 = unspool
     spool(2, motorSpeed3, spoolToggle);
-    Serial.println(bendInfo[2][2]);
   }
   if (F_Read > 500) {
     spoolToggle = -spoolToggle;
