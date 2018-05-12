@@ -118,7 +118,7 @@ void setup() {
 }
 
 void loop(){
-  if(Serial1.available() >0) { //Lights for A
+  if(Serial1.available() >0) {
     incomingByte = Serial1.read();
     if ((incomingByte == 'c') || (incomingByte == 'C')) {
       Serial.write("C received\n");
@@ -143,12 +143,13 @@ void loop(){
       Serial.write("G received\n");
       spool(2, 100, -spoolToggle);
     }
-    if (incomingByte == '$') {
+    if (incomingByte == '$') { //A
       Serial.write("A received\n");
       // spool(2, 25, spoolToggle);
       // spool(0, 25, -spoolToggle);
-      petalSteps(200);
       digitalWrite(Blue_PIN, HIGH);
+      petalSteps(200);
+      delay(500);
       digitalWrite(Blue_PIN, LOW);
     }
 
@@ -159,10 +160,11 @@ void loop(){
   if(B_force > 50) {
     Serial.write("B received\n");
     // spool(0, 25, spoolToggle);
-    petalSteps(-200);
-    digitalWrite(Pink_PIN, HIGH);
     Serial.print('b');
     Serial1.print('b');
+    digitalWrite(Pink_PIN, HIGH);
+    petalSteps(-200);
+    delay(500);
     digitalWrite(Pink_PIN, LOW);
   }
 }
