@@ -4,6 +4,11 @@ const int leftPin[3] = {D2, D5, A4};
 const int rightPin[3] = {D1, D4, A5};
 int motorCounter[3] = {0, 0, 0};
 
+int petalCounter_F = 0;
+int petalCounter_B = 3;
+bool front = true;
+
+
 const int petalSPin = A0;
 const int petalDPin = A1;
 const int STEPS_PER_TURN = 200;
@@ -50,14 +55,17 @@ void step(bool forward) {
 }
 
 void petalSteps(int number_of_steps) {
-  Serial.write("Steps called\n");
-  bool move_forward = true;
+  // Serial.println("back counter" + String(petalCounter_B));
+  // Serial.println("forwrds counter" + String(petalCounter_F));
+  bool move_forward =true;
   // Establishing the direction
-  if (number_of_steps >= 0) {
+  if (number_of_steps >=0) {
     move_forward = true;
+    Serial.println("forward");
   } else {
     move_forward = false;
     number_of_steps = -number_of_steps;
+    Serial.println("back");
   }
   for (int i = 0; i < number_of_steps; i++) {
     step(move_forward);
@@ -68,14 +76,16 @@ void petalSteps(int number_of_steps) {
 
 void spool(int motor, int speed, int direction) {
   if ((direction == 1) || (direction == -1)) {
-    digitalWrite(motorPin[motor], LOW);
+    // digitalWrite(motorPin[motor], LOW);
+    // Serial.write(motorCounter[motor]);
     // if (motorCounter[motor] >= 3) {
     //   spoolToggle = -spoolToggle;
+    //   Serial.write(spoolToggle);
     //   motorCounter[motor]--;
     //   // spool(motor, speed, spoolToggle);
     // }
     // if (motorCounter[motor] < 0) {
-    //   spoolToggle = spoolToggle;
+    //   spoolToggle = -spoolToggle;
     //   motorCounter[motor]++;
     //   // spool(motor, speed, spoolToggle);
     // }
@@ -147,8 +157,26 @@ void loop(){
       Serial.write("A received\n");
       // spool(2, 25, spoolToggle);
       // spool(0, 25, -spoolToggle);
-      digitalWrite(Blue_PIN, HIGH);
-      petalSteps(200);
+      if(petalCounter_F == 3 && front == true) {
+        petalSteps(-200);
+        petalCounter_F--;
+        petalCounter_B++;
+        front = false;
+      } else if (petalCounter_F <= 0 && front == false) {
+        petalSteps(200);
+        petalCounter_F++;
+        petalCounter_B--;
+        front = true;
+      } else if(petalCounter_F < 3 && front == false){
+        petalSteps(-200);
+        petalCounter_F--;
+        petalCounter_B++;
+      } else if(petalCounter_F < 3 && front == true){
+        petalSteps(200);
+        petalCounter_F++;
+        petalCounter_B--;
+      }
+
       delay(500);
       digitalWrite(Blue_PIN, LOW);
     }
@@ -163,7 +191,24 @@ void loop(){
     Serial.print('b');
     Serial1.print('b');
     digitalWrite(Pink_PIN, HIGH);
-    petalSteps(-200);
+    if(petalCounter_B == 3 && front == true) {
+      petalSteps(200);
+      petalCounter_F++;
+      petalCounter_B--;
+    } else if (petalCounter_B <= 0 && front == true) {
+      petalSteps(-200);
+      petalCounter_F--;
+      petalCounter_B++;
+      front = false;
+    } else if(petalCounter_B < 3 && front == true){
+      petalSteps(200);
+      petalCounter_F++;
+      petalCounter_B--;
+    } else if(petalCounter_B < 3 && front == false){
+      petalSteps(-200);
+      petalCounter_F--;
+      petalCounter_B++;
+    }
     delay(500);
     digitalWrite(Pink_PIN, LOW);
   }
